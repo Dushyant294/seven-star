@@ -11,17 +11,9 @@ function App() {
   const [gameOver, setGameOver] = useState(null);
 
   useEffect(() => {
-    socket.on("gameState", (state) => {
-      setGameState(state);
-    });
-
-    socket.on("gameOver", (data) => {
-      setGameOver(data);
-    });
-
-    socket.on("errorMessage", (msg) => {
-      alert(msg);
-    });
+    socket.on("gameState", setGameState);
+    socket.on("gameOver", setGameOver);
+    socket.on("errorMessage", alert);
 
     return () => {
       socket.off("gameState");
@@ -31,14 +23,14 @@ function App() {
   }, []);
 
   const createRoom = () => {
-    socket.emit("createRoom", { name }, (code) => {
+    socket.emit("createRoom", { name }, code => {
       window.roomCode = code;
       setRoomCode(code);
     });
   };
 
   const joinRoom = () => {
-    socket.emit("joinRoom", { roomCode: joinCode, name }, (res) => {
+    socket.emit("joinRoom", { roomCode: joinCode, name }, res => {
       if (res?.error) alert(res.error);
       else {
         window.roomCode = joinCode;
@@ -54,17 +46,13 @@ function App() {
         <h2>Winner: {gameOver.winner}</h2>
         <p>TEAM 1: {gameOver.scores.TEAM1}</p>
         <p>TEAM 2: {gameOver.scores.TEAM2}</p>
+        <p>⭐ STAR COLOR: {gameOver.starColor || "None"}</p>
       </div>
     );
   }
 
-  if (gameState) {
-    return <GameTable gameState={gameState} />;
-  }
-
-  if (roomCode) {
-    return <Lobby roomCode={roomCode} />;
-  }
+  if (gameState) return <GameTable gameState={gameState} />;
+  if (roomCode) return <Lobby roomCode={roomCode} />;
 
   return (
     <div style={{ padding: 40 }}>
@@ -73,7 +61,7 @@ function App() {
       <input
         placeholder="Your Name"
         value={name}
-        onChange={(e) => setName(e.target.value)}
+        onChange={e => setName(e.target.value)}
       />
 
       <div>
@@ -84,7 +72,7 @@ function App() {
         <input
           placeholder="Room Code"
           value={joinCode}
-          onChange={(e) => setJoinCode(e.target.value)}
+          onChange={e => setJoinCode(e.target.value)}
         />
         <button onClick={joinRoom}>Join Room</button>
       </div>

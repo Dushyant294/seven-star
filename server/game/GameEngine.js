@@ -2,7 +2,7 @@ const { createDeck, VALUE_ORDER } = require("./Deck");
 
 class GameEngine {
   constructor(seating) {
-    this.players = seating; // fixed circular order
+    this.players = seating;              // fixed circular order
     this.turnIndex = Math.floor(Math.random() * 4);
     this.round = 1;
 
@@ -10,14 +10,14 @@ class GameEngine {
     this.hands = {};
     this.trick = [];
 
-    this.scores = {
-      TEAM1: 0,
-      TEAM2: 0
-    };
+    this.scores = { TEAM1: 0, TEAM2: 0 };
 
-    // Deal 15 cards each
-    seating.forEach((player) => {
-      this.hands[player.id] = this.deck.splice(0, 15);
+    // ⭐ GLOBAL STAR (persists entire game)
+    this.starColor = null;
+
+    // deal 15 cards each
+    seating.forEach(p => {
+      this.hands[p.id] = this.deck.splice(0, 15);
     });
   }
 
@@ -26,7 +26,7 @@ class GameEngine {
   }
 
   playCard(playerId, card) {
-    // Turn check
+    // turn validation
     if (this.getCurrentPlayer().id !== playerId) {
       throw new Error("Not your turn");
     }
@@ -34,55 +34,90 @@ class GameEngine {
     const hand = this.hands[playerId];
     if (!hand) throw new Error("Invalid player");
 
-    // Card ownership check
-    const index = hand.findIndex(
-      (c) => c.color === card.color && c.value === card.value
+    // ownership check
+    const idx = hand.findIndex(
+      c => c.color === card.color && c.value === card.value
     );
-    if (index === -1) {
-      throw new Error("Card not in hand");
-    }
+    if (idx === -1) throw new Error("Card not in hand");
 
-    // Same color enforcement
-    if (this.trick.length > 0) {
-      const leadColor = this.trick[0].card.color;
-      if (card.color !== leadColor) {
-        throw new Error("Must follow same color");
+    const leadColor = this.trick.length > 0
+      ? this.trick[0].card.color
+      : null;
+
+    // must follow lead color if present
+    if (leadColor) {
+      const hasLead = hand.some(c => c.color === leadColor);
+      if (hasLead && card.color !== leadColor) {
+        throw new Error("Must follow lead color");
       }
     }
 
-    // Play card
-    hand.splice(index, 1);
+    // ⭐ STAR CREATION (ONLY ONCE IN GAME)
+    if (
+      !this.starColor &&
+      leadColor &&
+      card.value === "Skip" &&
+      card.color !== leadColor
+    ) {
+      const hasLead = hand.some(c => c.color === leadColor);
+      if (!hasLead) {
+        this.starColor = card.color; // GLOBAL, NEVER CHANGES
+      }
+    }
+
+    // play card
+    hand.splice(idx, 1);
     this.trick.push({ playerId, card });
 
-    // Move turn
+    // advance turn
     this.turnIndex = (this.turnIndex + 1) % 4;
 
-    // Resolve round if needed
+    // resolve round
     if (this.trick.length === 4) {
-      this.resolveTrick();
+      this.resolveRound();
     }
   }
 
-  resolveTrick() {
-    let winnerPlay = this.trick[0];
+  resolveRound() {
+    let winnerPlay = null;
 
-    this.trick.forEach((play) => {
-      if (
-        VALUE_ORDER.indexOf(play.card.value) >
-        VALUE_ORDER.indexOf(winnerPlay.card.value)
-      ) {
-        winnerPlay = play;
+    // 1️⃣ STAR color dominance
+    if (this.starColor) {
+      const starPlays = this.trick.filter(
+        t => t.card.color === this.starColor
+      );
+      if (starPlays.length > 0) {
+        winnerPlay = starPlays.reduce((a, b) =>
+          VALUE_ORDER.indexOf(b.card.value) >
+          VALUE_ORDER.indexOf(a.card.value)
+            ? b
+            : a
+        );
       }
-    });
+    }
+
+    // 2️⃣ Lead color dominance
+    if (!winnerPlay) {
+      const leadColor = this.trick[0].card.color;
+      const leadPlays = this.trick.filter(
+        t => t.card.color === leadColor
+      );
+
+      winnerPlay = leadPlays.reduce((a, b) =>
+        VALUE_ORDER.indexOf(b.card.value) >
+        VALUE_ORDER.indexOf(a.card.value)
+          ? b
+          : a
+      );
+    }
 
     const winnerPlayer = this.players.find(
-      (p) => p.id === winnerPlay.playerId
+      p => p.id === winnerPlay.playerId
     );
 
-    // Score
     this.scores[winnerPlayer.team] += 1;
 
-    // Winner starts next round
+    // winner starts next round
     this.turnIndex = this.players.indexOf(winnerPlayer);
 
     this.trick = [];

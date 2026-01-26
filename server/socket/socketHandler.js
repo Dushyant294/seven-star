@@ -4,9 +4,7 @@ const GameEngine = require("../game/GameEngine");
 module.exports = (io) => {
   io.on("connection", (socket) => {
 
-    // ======================
     // CREATE ROOM
-    // ======================
     socket.on("createRoom", ({ name }, cb) => {
       const roomCode = Math.random()
         .toString(36)
@@ -27,9 +25,7 @@ module.exports = (io) => {
       cb(roomCode);
     });
 
-    // ======================
     // JOIN ROOM
-    // ======================
     socket.on("joinRoom", ({ roomCode, name }, cb) => {
       const room = RoomManager.getRoom(roomCode);
       if (!room) return cb({ error: "Room not found" });
@@ -49,9 +45,7 @@ module.exports = (io) => {
       cb({ success: true });
     });
 
-    // ======================
     // SELECT TEAM
-    // ======================
     socket.on("selectTeam", ({ roomCode, team }) => {
       const room = RoomManager.getRoom(roomCode);
       if (!room) return;
@@ -66,9 +60,7 @@ module.exports = (io) => {
       io.to(roomCode).emit("roomUpdate", room.players);
     });
 
-    // ======================
     // START GAME
-    // ======================
     socket.on("startGame", (roomCode, cb) => {
       const room = RoomManager.getRoom(roomCode);
       if (!room) return;
@@ -97,23 +89,22 @@ module.exports = (io) => {
 
       room.game = new GameEngine(room.seating);
 
-      room.seating.forEach((player) => {
+      room.seating.forEach(player => {
         io.to(player.id).emit("gameState", {
           hand: room.game.hands[player.id],
           seating: room.seating,
           currentTurn: room.game.getCurrentPlayer().id,
           round: room.game.round,
           scores: room.game.scores,
-          trick: []
+          trick: [],
+          starColor: room.game.starColor
         });
       });
 
       cb({ success: true });
     });
 
-    // ======================
     // PLAY CARD
-    // ======================
     socket.on("playCard", ({ roomCode, card }) => {
       const room = RoomManager.getRoom(roomCode);
       if (!room || !room.game) return;
@@ -125,24 +116,24 @@ module.exports = (io) => {
         return;
       }
 
-      // Game over
       if (room.game.isGameOver()) {
         io.to(roomCode).emit("gameOver", {
           scores: room.game.scores,
-          winner: room.game.getWinner()
+          winner: room.game.getWinner(),
+          starColor: room.game.starColor
         });
         return;
       }
 
-      // Broadcast updated state
-      room.seating.forEach((player) => {
+      room.seating.forEach(player => {
         io.to(player.id).emit("gameState", {
           hand: room.game.hands[player.id],
           seating: room.seating,
           currentTurn: room.game.getCurrentPlayer().id,
           round: room.game.round,
           scores: room.game.scores,
-          trick: room.game.trick
+          trick: room.game.trick,
+          starColor: room.game.starColor
         });
       });
     });
