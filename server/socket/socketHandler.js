@@ -3,7 +3,6 @@ const GameEngine = require("../game/GameEngine");
 
 module.exports = (io) => {
   io.on("connection", (socket) => {
-    console.log("Player connected:", socket.id);
 
     // ======================
     // CREATE ROOM
@@ -33,16 +32,8 @@ module.exports = (io) => {
     // ======================
     socket.on("joinRoom", ({ roomCode, name }, cb) => {
       const room = RoomManager.getRoom(roomCode);
-
-      if (!room) {
-        cb({ error: "Room not found" });
-        return;
-      }
-
-      if (room.players.length >= 4) {
-        cb({ error: "Room is full" });
-        return;
-      }
+      if (!room) return cb({ error: "Room not found" });
+      if (room.players.length >= 4) return cb({ error: "Room full" });
 
       const player = {
         id: socket.id,
@@ -76,31 +67,27 @@ module.exports = (io) => {
     });
 
     // ======================
-    // START GAME (HOST ONLY)
+    // START GAME
     // ======================
     socket.on("startGame", (roomCode, cb) => {
       const room = RoomManager.getRoom(roomCode);
       if (!room) return;
 
       if (room.host.id !== socket.id) {
-        cb({ error: "Only host can start the game" });
-        return;
+        return cb({ error: "Only host can start" });
       }
 
       if (room.players.length !== 4) {
-        cb({ error: "Exactly 4 players required" });
-        return;
+        return cb({ error: "Need exactly 4 players" });
       }
 
       const team1 = room.players.filter(p => p.team === "TEAM1");
       const team2 = room.players.filter(p => p.team === "TEAM2");
 
       if (team1.length !== 2 || team2.length !== 2) {
-        cb({ error: "Teams must be 2 vs 2" });
-        return;
+        return cb({ error: "Teams must be 2 vs 2" });
       }
 
-      // Enforce non-adjacent seating
       room.seating = [
         team1[0],
         team2[0],
@@ -108,22 +95,57 @@ module.exports = (io) => {
         team2[1]
       ];
 
-      // Create game engine
       room.game = new GameEngine(room.seating);
 
-      // Send private game state to each player
       room.seating.forEach((player) => {
         io.to(player.id).emit("gameState", {
           hand: room.game.hands[player.id],
           seating: room.seating,
           currentTurn: room.game.getCurrentPlayer().id,
           round: room.game.round,
-          scores: room.game.scores
+          scores: room.game.scores,
+          trick: []
         });
       });
 
       cb({ success: true });
     });
+
+    // ======================
+    // PLAY CARD
+    // ======================
+    socket.on("playCard", ({ roomCode, card }) => {
+      const room = RoomManager.getRoom(roomCode);
+      if (!room || !room.game) return;
+
+      try {
+        room.game.playCard(socket.id, card);
+      } catch (err) {
+        io.to(socket.id).emit("errorMessage", err.message);
+        return;
+      }
+
+      // Game over
+      if (room.game.isGameOver()) {
+        io.to(roomCode).emit("gameOver", {
+          scores: room.game.scores,
+          winner: room.game.getWinner()
+        });
+        return;
+      }
+
+      // Broadcast updated state
+      room.seating.forEach((player) => {
+        io.to(player.id).emit("gameState", {
+          hand: room.game.hands[player.id],
+          seating: room.seating,
+          currentTurn: room.game.getCurrentPlayer().id,
+          round: room.game.round,
+          scores: room.game.scores,
+          trick: room.game.trick
+        });
+      });
+    });
+
   });
 };
-   

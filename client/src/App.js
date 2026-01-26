@@ -8,57 +8,64 @@ function App() {
   const [roomCode, setRoomCode] = useState(null);
   const [joinCode, setJoinCode] = useState("");
   const [gameState, setGameState] = useState(null);
+  const [gameOver, setGameOver] = useState(null);
 
-  // 🔥 Listen for game state from server
   useEffect(() => {
     socket.on("gameState", (state) => {
       setGameState(state);
     });
 
+    socket.on("gameOver", (data) => {
+      setGameOver(data);
+    });
+
+    socket.on("errorMessage", (msg) => {
+      alert(msg);
+    });
+
     return () => {
       socket.off("gameState");
+      socket.off("gameOver");
+      socket.off("errorMessage");
     };
   }, []);
 
-  // CREATE ROOM
   const createRoom = () => {
-    if (!name) {
-      alert("Enter your name");
-      return;
-    }
-
     socket.emit("createRoom", { name }, (code) => {
+      window.roomCode = code;
       setRoomCode(code);
     });
   };
 
-  // JOIN ROOM
   const joinRoom = () => {
-    if (!name || !joinCode) {
-      alert("Enter name and room code");
-      return;
-    }
-
     socket.emit("joinRoom", { roomCode: joinCode, name }, (res) => {
-      if (res?.error) {
-        alert(res.error);
-      } else {
+      if (res?.error) alert(res.error);
+      else {
+        window.roomCode = joinCode;
         setRoomCode(joinCode);
       }
     });
   };
 
-  // 🎮 GAME SCREEN
+  if (gameOver) {
+    return (
+      <div style={{ padding: 40 }}>
+        <h1>Game Over 🏆</h1>
+        <h2>Winner: {gameOver.winner}</h2>
+        <p>TEAM 1: {gameOver.scores.TEAM1}</p>
+        <p>TEAM 2: {gameOver.scores.TEAM2}</p>
+      </div>
+    );
+  }
+
   if (gameState) {
     return <GameTable gameState={gameState} />;
   }
 
-  // 🧩 LOBBY SCREEN
   if (roomCode) {
     return <Lobby roomCode={roomCode} />;
   }
 
-  // 🏠 HOME SCREEN
   return (
     <div style={{ padding: 40 }}>
       <h1>Seven Star 🌟</h1>
@@ -67,19 +74,17 @@ function App() {
         placeholder="Your Name"
         value={name}
         onChange={(e) => setName(e.target.value)}
-        style={{ marginBottom: 10 }}
       />
 
       <div>
         <button onClick={createRoom}>Create Room</button>
       </div>
 
-      <div style={{ marginTop: 20 }}>
+      <div>
         <input
           placeholder="Room Code"
           value={joinCode}
           onChange={(e) => setJoinCode(e.target.value)}
-          style={{ marginRight: 10 }}
         />
         <button onClick={joinRoom}>Join Room</button>
       </div>
