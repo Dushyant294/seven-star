@@ -91,16 +91,6 @@ export default function GameTable({ gameState }) {
     }
   };
 
-  // Special icon for center of card
-  const getCenterIcon = (value) => {
-    switch (value) {
-      case "Skip": return "⊘";
-      case "Reverse": return "⟲";
-      case "+2": return "⃞⃞"; // will use CSS styled version
-      default: return value;
-    }
-  };
-
   // Get spatial positions for the 4 players
   const myIndex = seating.findIndex((p) => p.id === myId);
   const getPositionedPlayers = () => {
