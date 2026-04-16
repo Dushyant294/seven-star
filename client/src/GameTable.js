@@ -15,6 +15,7 @@ export default function GameTable({ gameState }) {
   } = gameState;
 
   const [roundToast, setRoundToast] = useState(null);
+  const [toastExiting, setToastExiting] = useState(false);
   const [lastSeenRound, setLastSeenRound] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
 
@@ -28,13 +29,24 @@ export default function GameTable({ gameState }) {
     return () => socket.off("errorMessage", handleError);
   }, []);
 
-  // Show round result toast for 4 seconds
+  // Show round result toast for 4 seconds with exit animation
   useEffect(() => {
     if (lastRoundResult && lastRoundResult.round !== lastSeenRound) {
       setLastSeenRound(lastRoundResult.round);
+      setToastExiting(false);
       setRoundToast(lastRoundResult);
-      const timer = setTimeout(() => setRoundToast(null), 4000);
-      return () => clearTimeout(timer);
+
+      // Start exit animation at 3.5s, remove at 4s
+      const exitTimer = setTimeout(() => setToastExiting(true), 3500);
+      const removeTimer = setTimeout(() => {
+        setRoundToast(null);
+        setToastExiting(false);
+      }, 4000);
+
+      return () => {
+        clearTimeout(exitTimer);
+        clearTimeout(removeTimer);
+      };
     }
   }, [lastRoundResult, lastSeenRound]);
 
@@ -60,31 +72,100 @@ export default function GameTable({ gameState }) {
 
   // Map colors to display values
   const colorConfig = {
-    R: { label: "Red", symbol: "🔴", className: "color-red" },
-    B: { label: "Blue", symbol: "🔵", className: "color-blue" },
-    G: { label: "Green", symbol: "🟢", className: "color-green" },
-    Y: { label: "Yellow", symbol: "🟡", className: "color-yellow" },
+    R: { label: "Red", className: "color-red" },
+    B: { label: "Blue", className: "color-blue" },
+    G: { label: "Green", className: "color-green" },
+    Y: { label: "Yellow", className: "color-yellow" },
   };
 
   const getColorClass = (color) => colorConfig[color]?.className || "";
-  const getColorSymbol = (color) => colorConfig[color]?.symbol || color;
   const getColorLabel = (color) => colorConfig[color]?.label || color;
 
+  // Card value to display symbol (UNO style)
+  const getValueDisplay = (value) => {
+    switch (value) {
+      case "Skip": return "⊘";
+      case "Reverse": return "⟲";
+      case "+2": return "+2";
+      default: return value;
+    }
+  };
+
+  // Special icon for center of card
+  const getCenterIcon = (value) => {
+    switch (value) {
+      case "Skip": return "⊘";
+      case "Reverse": return "⟲";
+      case "+2": return "⃞⃞"; // will use CSS styled version
+      default: return value;
+    }
+  };
+
   // Get spatial positions for the 4 players
-  // My seat index → I'm always at bottom
   const myIndex = seating.findIndex((p) => p.id === myId);
   const getPositionedPlayers = () => {
     if (myIndex === -1) return { top: null, left: null, right: null, bottom: null };
     const order = [0, 1, 2, 3].map((offset) => seating[(myIndex + offset) % 4]);
     return {
-      bottom: order[0], // me
+      bottom: order[0],
       left: order[1],
-      top: order[2], // teammate (opposite)
+      top: order[2],
       right: order[3],
     };
   };
 
   const positioned = getPositionedPlayers();
+
+  // ── Render an UNO-style card ──
+  const renderUnoCard = (color, value, size = "normal", ownerName = null) => {
+    const sizeClass = size === "small" ? "uno-card-sm" : size === "mini" ? "uno-card-mini" : "";
+    const displayVal = getValueDisplay(value);
+    const isSpecial = ["Skip", "Reverse", "+2"].includes(value);
+
+    return (
+      <div className={`uno-card ${getColorClass(color)} ${sizeClass}`}>
+        {/* White border frame */}
+        <div className="uno-inner">
+          {/* Top-left corner */}
+          <div className="uno-corner uno-corner-tl">
+            <span className={`uno-corner-val ${isSpecial ? "special-val" : ""}`}>
+              {displayVal}
+            </span>
+          </div>
+
+          {/* Center oval with value */}
+          <div className="uno-oval">
+            <span className={`uno-center-val ${isSpecial ? "special-center" : ""}`}>
+              {value === "+2" ? (
+                <span className="plus2-display">
+                  <span className="plus2-cards">🂠🂠</span>
+                  <span className="plus2-text">+2</span>
+                </span>
+              ) : value === "Skip" ? (
+                <span className="skip-icon">⊘</span>
+              ) : value === "Reverse" ? (
+                <span className="reverse-icon">⟲</span>
+              ) : (
+                displayVal
+              )}
+            </span>
+          </div>
+
+          {/* Bottom-right corner (rotated 180°) */}
+          <div className="uno-corner uno-corner-br">
+            <span className={`uno-corner-val ${isSpecial ? "special-val" : ""}`}>
+              {displayVal}
+            </span>
+          </div>
+        </div>
+
+        {/* Owner name tag for table cards */}
+        {ownerName && (
+          <div className="uno-card-owner">{ownerName}</div>
+        )}
+      </div>
+    );
+  };
 
   // Render a player seat
   const renderSeat = (player, position) => {
@@ -94,7 +175,6 @@ export default function GameTable({ gameState }) {
     const isTeammate =
       seating.find((p) => p.id === myId)?.team === player.team && !isMe;
 
-    // Get this player's played card in trick
     const playedCard = trick.find((t) => t.playerId === player.id);
 
     return (
@@ -122,15 +202,8 @@ export default function GameTable({ gameState }) {
         )}
         {/* Played card floating near this seat */}
         {playedCard && (
-          <div
-            className={`seat-played-card ${getColorClass(
-              playedCard.card.color
-            )} card-enter`}
-          >
-            <span className="played-card-value">{playedCard.card.value}</span>
-            <span className="played-card-color">
-              {getColorSymbol(playedCard.card.color)}
-            </span>
+          <div className="seat-played-card card-enter">
+            {renderUnoCard(playedCard.card.color, playedCard.card.value, "mini")}
           </div>
         )}
       </div>
@@ -141,7 +214,7 @@ export default function GameTable({ gameState }) {
     <div className="game-container">
       {/* ── Round Result Toast ── */}
       {roundToast && (
-        <div className="round-toast toast-enter">
+        <div className={`round-toast ${toastExiting ? "toast-exit" : "toast-enter"}`}>
           <div className="toast-icon">🏆</div>
           <div className="toast-body">
             <div className="toast-title">
@@ -155,8 +228,8 @@ export default function GameTable({ gameState }) {
                   roundToast.winningCard.color
                 )}`}
               >
-                {roundToast.winningCard.value}{" "}
-                {getColorSymbol(roundToast.winningCard.color)}
+                {getValueDisplay(roundToast.winningCard.value)}{" "}
+                {getColorLabel(roundToast.winningCard.color)}
               </span>
             </div>
             <div className="toast-next">
@@ -193,7 +266,7 @@ export default function GameTable({ gameState }) {
             <span className="star-label">Star Color</span>
             {starColor ? (
               <span className={`star-chip ${getColorClass(starColor)}`}>
-                {getColorSymbol(starColor)} {getColorLabel(starColor)}
+                {getColorLabel(starColor)}
               </span>
             ) : (
               <span className="star-chip star-none">None</span>
@@ -219,10 +292,8 @@ export default function GameTable({ gameState }) {
 
       {/* ── Game Table (Spatial Layout) ── */}
       <div className="table-arena">
-        {/* Top player (teammate / opposite) */}
         <div className="arena-top">{renderSeat(positioned.top, "top")}</div>
 
-        {/* Middle row: Left - Center Table - Right */}
         <div className="arena-middle">
           <div className="arena-left">
             {renderSeat(positioned.left, "left")}
@@ -250,18 +321,15 @@ export default function GameTable({ gameState }) {
                   {trick.map((t, i) => (
                     <div
                       key={i}
-                      className={`table-card ${getColorClass(
-                        t.card.color
-                      )} card-enter`}
+                      className="table-card-wrap card-enter"
                       style={{ animationDelay: `${i * 0.1}s` }}
                     >
-                      <div className="table-card-value">{t.card.value}</div>
-                      <div className="table-card-color">
-                        {getColorSymbol(t.card.color)}
-                      </div>
-                      <div className="table-card-owner">
-                        {getPlayerName(t.playerId)}
-                      </div>
+                      {renderUnoCard(
+                        t.card.color,
+                        t.card.value,
+                        "small",
+                        getPlayerName(t.playerId)
+                      )}
                     </div>
                   ))}
                 </div>
@@ -274,7 +342,6 @@ export default function GameTable({ gameState }) {
           </div>
         </div>
 
-        {/* Bottom player (YOU) */}
         <div className="arena-bottom">
           {renderSeat(positioned.bottom, "bottom")}
         </div>
@@ -293,7 +360,7 @@ export default function GameTable({ gameState }) {
             hand.map((card, i) => (
               <button
                 key={`${card.color}-${card.value}-${i}`}
-                className={`hand-card ${getColorClass(card.color)} ${
+                className={`hand-card-btn ${
                   isMyTurn ? "card-playable" : "card-disabled"
                 }`}
                 onClick={() => playCard(card)}
@@ -305,21 +372,7 @@ export default function GameTable({ gameState }) {
                     : "Not your turn"
                 }
               >
-                <div className="hcard-top">
-                  <span className="hcard-value">{card.value}</span>
-                  <span className="hcard-symbol">
-                    {getColorSymbol(card.color)}
-                  </span>
-                </div>
-                <div className="hcard-center">
-                  {getColorSymbol(card.color)}
-                </div>
-                <div className="hcard-bottom">
-                  <span className="hcard-symbol">
-                    {getColorSymbol(card.color)}
-                  </span>
-                  <span className="hcard-value">{card.value}</span>
-                </div>
+                {renderUnoCard(card.color, card.value)}
               </button>
             ))
           )}
