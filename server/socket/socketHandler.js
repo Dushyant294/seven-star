@@ -6,6 +6,8 @@ module.exports = (io) => {
 
     // CREATE ROOM
     socket.on("createRoom", ({ name }, cb) => {
+      if (!name || !name.trim()) return cb({ error: "Name is required" });
+
       const roomCode = Math.random()
         .toString(36)
         .substring(2, 7)
@@ -13,7 +15,7 @@ module.exports = (io) => {
 
       const host = {
         id: socket.id,
-        name,
+        name: name.trim(),
         team: null,
         isHost: true
       };
@@ -27,13 +29,21 @@ module.exports = (io) => {
 
     // JOIN ROOM
     socket.on("joinRoom", ({ roomCode, name }, cb) => {
+      if (!name || !name.trim()) return cb({ error: "Name is required" });
+
       const room = RoomManager.getRoom(roomCode);
       if (!room) return cb({ error: "Room not found" });
       if (room.players.length >= 4) return cb({ error: "Room full" });
 
+      const trimmedName = name.trim();
+      const duplicate = room.players.some(
+        p => p.name.toLowerCase() === trimmedName.toLowerCase()
+      );
+      if (duplicate) return cb({ error: "Name already taken in this room" });
+
       const player = {
         id: socket.id,
-        name,
+        name: trimmedName,
         team: null,
         isHost: false
       };
@@ -97,7 +107,8 @@ module.exports = (io) => {
           round: room.game.round,
           scores: room.game.scores,
           trick: [],
-          starColor: room.game.starColor
+          starColor: room.game.starColor,
+          lastRoundResult: room.game.lastRoundResult || null
         });
       });
 
@@ -133,7 +144,8 @@ module.exports = (io) => {
           round: room.game.round,
           scores: room.game.scores,
           trick: room.game.trick,
-          starColor: room.game.starColor
+          starColor: room.game.starColor,
+          lastRoundResult: room.game.lastRoundResult || null
         });
       });
     });

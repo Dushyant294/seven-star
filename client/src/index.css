@@ -1,83 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800&display=swap');
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%);
+  background: linear-gradient(135deg, #0a0e17 0%, #111827 50%, #0f1520 100%);
   min-height: 100vh;
+  color: #e0e6f0;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
-}
-
-/* Card Styles */
-.card {
-  width: 80px;
-  height: 120px;
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  position: relative;
-}
-
-.card:hover {
-  transform: translateY(-8px) scale(1.05);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
-}
-
-.card.active {
-  transform: translateY(-10px) scale(1.1);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.6);
-}
-
-/* Suit Colors */
-.card.hearts,
-.card.r {
-  background: linear-gradient(135deg, #e63946, #f1335f);
-  color: white;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-}
-
-.card.diamonds,
-.card.y {
-  background: linear-gradient(135deg, #f4b400, #fdd835);
-  color: #333;
-  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.3);
-  font-weight: bold;
-}
-
-.card.clubs,
-.card.g {
-  background: linear-gradient(135deg, #06a77d, #118b6b);
-  color: white;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-}
-
-.card.spades,
-.card.b {
-  background: linear-gradient(135deg, #264653, #2a5d6e);
-  color: white;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-}
-
-.card-value {
-  font-size: 16px;
-  font-weight: bold;
-  margin-bottom: 4px;
-}
-
-.card-suit {
-  font-size: 20px;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }

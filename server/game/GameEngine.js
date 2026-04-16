@@ -15,6 +15,9 @@ class GameEngine {
     // ⭐ GLOBAL STAR (persists entire game)
     this.starColor = null;
 
+    // 📋 Last round result (for client display)
+    this.lastRoundResult = null;
+
     // deal 15 cards each
     seating.forEach(p => {
       this.hands[p.id] = this.deck.splice(0, 15);
@@ -81,18 +84,26 @@ class GameEngine {
   resolveRound() {
     let winnerPlay = null;
 
+    const getHighestValueIndex = (plays) => {
+      let maxIndex = -1;
+      let winner = null;
+      for (const play of plays) {
+        const idx = VALUE_ORDER.indexOf(play.card.value);
+        if (idx >= maxIndex) {
+          maxIndex = idx;
+          winner = play;
+        }
+      }
+      return winner;
+    };
+
     // 1️⃣ STAR color dominance
     if (this.starColor) {
       const starPlays = this.trick.filter(
         t => t.card.color === this.starColor
       );
       if (starPlays.length > 0) {
-        winnerPlay = starPlays.reduce((a, b) =>
-          VALUE_ORDER.indexOf(b.card.value) >
-          VALUE_ORDER.indexOf(a.card.value)
-            ? b
-            : a
-        );
+        winnerPlay = getHighestValueIndex(starPlays);
       }
     }
 
@@ -103,12 +114,7 @@ class GameEngine {
         t => t.card.color === leadColor
       );
 
-      winnerPlay = leadPlays.reduce((a, b) =>
-        VALUE_ORDER.indexOf(b.card.value) >
-        VALUE_ORDER.indexOf(a.card.value)
-          ? b
-          : a
-      );
+      winnerPlay = getHighestValueIndex(leadPlays);
     }
 
     const winnerPlayer = this.players.find(
@@ -119,6 +125,16 @@ class GameEngine {
 
     // winner starts next round
     this.turnIndex = this.players.indexOf(winnerPlayer);
+
+    // 📋 Store round result before clearing trick
+    this.lastRoundResult = {
+      winnerPlayerId: winnerPlayer.id,
+      winnerName: winnerPlayer.name,
+      winnerTeam: winnerPlayer.team,
+      winningCard: winnerPlay.card,
+      trick: [...this.trick],
+      round: this.round
+    };
 
     this.trick = [];
     this.round += 1;
